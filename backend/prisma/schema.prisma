@@ -1,0 +1,258 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(USER)
+  phone        String?
+  createdAt    DateTime @default(now())
+
+  profile         Profile?
+  addresses       Address[]
+  wallet          Wallet?
+  listings        Listing[]     @relation("OwnerListings")
+  itemsOwned      Item[]        @relation("ItemOwner")
+  orders          Order[]       @relation("BuyerOrders")
+  transactions    Transaction[]
+  ratingsGiven    Rating[]      @relation("giver")
+  ratingsReceived Rating[]      @relation("receiver")
+  deliveries      Delivery[]    @relation("deliveryPerson")
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique
+  fullName  String
+  avatarUrl String?
+  bio       String?
+  createdAt DateTime @default(now())
+}
+
+model Address {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  label     String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  country   String
+  pincode   String
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now())
+}
+
+model Item {
+  id          String        @id @default(uuid())
+  sku         String?       @unique
+  title       String
+  description String
+  brand       String?
+  material    String?
+  size        String?
+  color       String?
+  condition   ItemCondition @default(GOOD)
+  ownerId     String
+  owner       User          @relation("ItemOwner", fields: [ownerId], references: [id])
+  photos      Photo[]
+  createdAt   DateTime      @default(now())
+  listings    Listing[]
+}
+
+model Photo {
+  id               String    @id @default(uuid())
+  url              String
+  item             Item?     @relation(fields: [itemId], references: [id])
+  itemId           String?
+  deliveryPickup   Delivery? @relation("pickupPhotos", fields: [deliveryPickupId], references: [id])
+  deliveryPickupId String?
+  deliveryDrop     Delivery? @relation("deliveryPhotos", fields: [deliveryDropId], references: [id])
+  deliveryDropId   String?
+  uploadedAt       DateTime  @default(now())
+}
+
+model Listing {
+  id              String        @id @default(uuid())
+  item            Item          @relation(fields: [itemId], references: [id])
+  itemId          String
+  owner           User          @relation("OwnerListings", fields: [ownerId], references: [id])
+  ownerId         String
+  type            ListingType
+  pricePerDay     Int?
+  price           Int?
+  securityDeposit Int?
+  cleaningFee     Int?
+  availableFrom   DateTime?
+  availableTill   DateTime?
+  status          ListingStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  bookings        Order[]
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  buyerId       String
+  buyer         User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  listingId     String
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  type          ListingType
+  quantity      Int           @default(1)
+  rentStart     DateTime?
+  rentEnd       DateTime?
+  totalAmount   Int
+  depositAmount Int?
+  paymentStatus PaymentStatus @default(PENDING)
+  orderStatus   OrderStatus   @default(CREATED)
+  createdAt     DateTime      @default(now())
+  transactions  Transaction[]
+  deliveryJob   Delivery?
+  dispute       Dispute?
+}
+
+model Transaction {
+  id         String          @id @default(uuid())
+  order      Order?          @relation(fields: [orderId], references: [id])
+  orderId    String?
+  user       User            @relation(fields: [userId], references: [id])
+  userId     String
+  amount     Int
+  currency   String          @default("INR")
+  provider   String
+  providerId String?
+  type       TransactionType
+  createdAt  DateTime        @default(now())
+}
+
+model Delivery {
+  id                String         @id @default(uuid())
+  order             Order          @relation(fields: [orderId], references: [id])
+  orderId           String         @unique
+  pickupAddressId   String
+  deliveryAddressId String
+  assignedToId      String?
+  assignedTo        User?          @relation("deliveryPerson", fields: [assignedToId], references: [id])
+  pickupOtp         String?
+  deliveryOtp       String?
+  status            DeliveryStatus @default(PENDING_PICKUP)
+  pickupPhotos      Photo[]        @relation("pickupPhotos")
+  deliveryPhotos    Photo[]        @relation("deliveryPhotos")
+  pickedAt          DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime       @default(now())
+}
+
+model Rating {
+  id         String   @id @default(uuid())
+  giverId    String
+  giver      User     @relation("giver", fields: [giverId], references: [id])
+  receiverId String
+  receiver   User     @relation("receiver", fields: [receiverId], references: [id])
+  orderId    String?
+  score      Int
+  comment    String?
+  createdAt  DateTime @default(now())
+}
+
+model Dispute {
+  id        String        @id @default(uuid())
+  order     Order         @relation(fields: [orderId], references: [id])
+  orderId   String        @unique
+  openerId  String
+  reason    String
+  status    DisputeStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Wallet {
+  id      String @id @default(uuid())
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @unique
+  balance Int    @default(0)
+}
+
+enum UserRole {
+  USER
+  DELIVERY
+  ADMIN
+}
+
+enum ListingType {
+  RENT
+  SALE
+}
+
+enum ListingStatus {
+  ACTIVE
+  PAUSED
+  SOLD
+  REMOVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum OrderStatus {
+  CREATED
+  PICKUP_ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED_FOR_TRYON
+  VERIFIED_OK
+  RETURN_SCHEDULED
+  RETURNED
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING_PICKUP
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  PICKUP_FAILED
+  COMPLETED
+}
+
+enum ItemCondition {
+  NEW
+  GOOD
+  WORN
+  DAMAGED
+}
+
+enum TransactionType {
+  HOLD
+  CHARGE
+  REFUND
+  PAYOUT
+}
+
+enum DisputeStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
