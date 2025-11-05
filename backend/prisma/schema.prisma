@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -20,7 +17,9 @@ model User {
   passwordHash String
   role         UserRole @default(USER)
   phone        String?
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   profile         Profile?
   addresses       Address[]
@@ -36,17 +35,18 @@ model User {
 
 model Profile {
   id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String   @unique
   fullName  String
   avatarUrl String?
   bio       String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Address {
   id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   label     String
   line1     String
@@ -57,7 +57,9 @@ model Address {
   pincode   String
   lat       Float?
   lng       Float?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Item {
@@ -71,9 +73,11 @@ model Item {
   color       String?
   condition   ItemCondition @default(GOOD)
   ownerId     String
-  owner       User          @relation("ItemOwner", fields: [ownerId], references: [id])
+  owner       User          @relation("ItemOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  isActive    Boolean       @default(true)
   photos      Photo[]
   createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   listings    Listing[]
 }
 
@@ -91,9 +95,9 @@ model Photo {
 
 model Listing {
   id              String        @id @default(uuid())
-  item            Item          @relation(fields: [itemId], references: [id])
+  item            Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId          String
-  owner           User          @relation("OwnerListings", fields: [ownerId], references: [id])
+  owner           User          @relation("OwnerListings", fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId         String
   type            ListingType
   pricePerDay     Int?
@@ -103,16 +107,18 @@ model Listing {
   availableFrom   DateTime?
   availableTill   DateTime?
   status          ListingStatus @default(ACTIVE)
+  isActive        Boolean       @default(true)
   createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   bookings        Order[]
 }
 
 model Order {
   id            String        @id @default(uuid())
   buyerId       String
-  buyer         User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyer         User          @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
   listingId     String
-  listing       Listing       @relation(fields: [listingId], references: [id])
+  listing       Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
   type          ListingType
   quantity      Int           @default(1)
   rentStart     DateTime?
@@ -121,7 +127,9 @@ model Order {
   depositAmount Int?
   paymentStatus PaymentStatus @default(PENDING)
   orderStatus   OrderStatus   @default(CREATED)
+  isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   transactions  Transaction[]
   deliveryJob   Delivery?
   dispute       Dispute?
