@@ -1,10 +1,10 @@
 // src/routes/auth.js
 import express from 'express';
 import { authenticateToken, generateToken } from '../middleware/auth.js';
-import User from '../model/user';
+import User from '../model/User.js';
 
 
-const router = express.Router();con
+const router = express.Router();
 
 // Register
 router.post('/register', async (req, res) => {
@@ -120,4 +120,4 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

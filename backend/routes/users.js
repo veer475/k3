@@ -1,8 +1,8 @@
 // src/routes/users.js
 import express from 'express';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
-import Address from '../model/address';
-import User from '../model/user';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
+import Address from '../model/Address.js';
+import User from '../model/User.js';
 const router = express.Router();
 
 // Get user addresses
@@ -113,4 +113,4 @@ router.get('/', authenticateToken, authorizeRoles('ADMIN'), async (req, res) => 
   }
 });
 
-module.exports = router;
+export default router;

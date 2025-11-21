@@ -1,5 +1,5 @@
 // src/models/Transaction.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Transaction {
   static async create(transactionData) {
@@ -45,4 +45,4 @@ class Transaction {
   }
 }
 
-module.exports = Transaction;
+export default Transaction;

@@ -1,5 +1,5 @@
 // src/models/Wallet.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Wallet {
   static async findByUserId(userId) {
@@ -31,4 +31,4 @@ class Wallet {
   }
 }
 
-module.exports = Wallet;
+export default Wallet;

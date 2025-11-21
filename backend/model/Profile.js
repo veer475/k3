@@ -1,5 +1,5 @@
 // src/models/Profile.jsire('../config/database');
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Profile {
   static async findByUserId(userId) {
@@ -22,4 +22,4 @@ class Profile {
   }
 }
 
-module.exports = Profile;
+export default Profile;

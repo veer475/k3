@@ -5,9 +5,9 @@
 // const Order = require('../models/Order');
 // const router = express.Router();
 import express from 'express';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
-import Delivery from '../model/delivery';
-import Order from '../model/order';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
+import Delivery from '../model/Delivery.js';
+import Order from '../model/Order.js';
 const router = express.Router();
 
 // Get delivery by ID
@@ -134,4 +134,4 @@ router.get('/pending/deliveries', authenticateToken, authorizeRoles('ADMIN', 'DE
   }
 });
 
-module.exports = router;
+export default router;

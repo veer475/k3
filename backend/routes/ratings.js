@@ -4,8 +4,8 @@
 // const Rating = require('../models/Rating');
 // const router = express.Router();
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
-import Rating from '../model/rating';
+import { authenticateToken } from '../middleware/auth.js';
+import Rating from '../model/Rating.js';
 const router = express.Router();
 
 // Create rating
@@ -63,4 +63,4 @@ router.get('/order/:orderId', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

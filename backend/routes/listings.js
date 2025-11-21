@@ -4,9 +4,9 @@
 // const Listing = require('../models/Listing');
 // const Item = require('../models/Item');
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
-import Listing from '../model/listing';
-import Item from '../model/item';
+import { authenticateToken } from '../middleware/auth.js';
+import Listing from '../model/Listing.js';
+import Item from '../model/Item.js';
 const router = express.Router();
 
 // Get all listings with filters
@@ -147,4 +147,4 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

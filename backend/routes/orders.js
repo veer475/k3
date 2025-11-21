@@ -5,9 +5,9 @@
 // const Transaction = require('../models/Transaction');
 // const router = express.Router();
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
-import Order from '../model/order';
-import Transaction from '../model/transaction';
+import { authenticateToken } from '../middleware/auth.js';
+import Order from '../model/Order.js';
+import Transaction from '../model/Transaction.js';
 const router = express.Router();
 // Create order
 router.post('/', authenticateToken, async (req, res) => {
@@ -146,4 +146,4 @@ router.patch('/:id/assign-delivery', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

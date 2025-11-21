@@ -1,5 +1,5 @@
 // src/models/Delivery.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Delivery {
   static async findById(id) {
@@ -98,4 +98,4 @@ class Delivery {
   }
 }
 
-module.exports = Delivery;
+export default Delivery;

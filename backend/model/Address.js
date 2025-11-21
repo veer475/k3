@@ -1,5 +1,5 @@
 // src/models/Address.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Address {
   static async create(addressData) {
@@ -50,4 +50,4 @@ class Address {
   }
 }
 
-module.exports = Address;
+export default Address;

@@ -1,5 +1,5 @@
 // src/models/Order.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Order {
   static async create(orderData) {
@@ -171,4 +171,4 @@ class Order {
   }
 }
 
-module.exports = Order;
+export default Order;

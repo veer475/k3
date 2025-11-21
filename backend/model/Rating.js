@@ -1,5 +1,5 @@
 // src/models/Rating.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Rating {
   static async create(ratingData) {
@@ -48,4 +48,4 @@ class Rating {
   }
 }
 
-module.exports = Rating;
+export default Rating;

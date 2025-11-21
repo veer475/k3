@@ -1,5 +1,5 @@
 // src/models/Item.js
-import prisma from '../database';
+import prisma from '../database.js';
 
 class Item {
   static async create(itemData) {
@@ -67,4 +67,4 @@ class Item {
   }
 }
 
-module.exports = Item;
+export default Item;
