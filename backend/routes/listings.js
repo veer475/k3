@@ -6,7 +6,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import Listing from '../model/Listing.js';
-import Item from '../model/Item.js';
+import Item from '../model/item.js';
 const router = express.Router();
 
 // Get all listings with filters

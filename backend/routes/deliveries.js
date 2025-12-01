@@ -6,8 +6,8 @@
 // const router = express.Router();
 import express from 'express';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
-import Delivery from '../model/Delivery.js';
 import Order from '../model/Order.js';
+import Delivery from '../model/delivery.js';
 const router = express.Router();
 
 // Get delivery by ID

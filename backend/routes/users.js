@@ -1,8 +1,8 @@
 // src/routes/users.js
 import express from 'express';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
-import Address from '../model/Address.js';
-import User from '../model/User.js';
+import Address from '../model/address.js';
+import User from '../model/user.js';
 const router = express.Router();
 
 // Get user addresses
