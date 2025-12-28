@@ -137,16 +137,19 @@ model Order {
 
 model Transaction {
   id         String          @id @default(uuid())
-  order      Order?          @relation(fields: [orderId], references: [id])
   orderId    String?
-  user       User            @relation(fields: [userId], references: [id])
+  order      Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
   userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount     Int
   currency   String          @default("INR")
-  provider   String
-  providerId String?
+  provider   String          // e.g. STRIPE, RAZORPAY, WALLET
+  providerId String?         // gateway reference
   type       TransactionType
   createdAt  DateTime        @default(now())
+  @@index([userId])
+  @@index([orderId])
+  @@index([provider, providerId])
 }
 
 model Delivery {

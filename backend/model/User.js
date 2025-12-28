@@ -3,10 +3,11 @@ import prisma from "../database.js";
 import bcrypt from "bcryptjs";
 
 class User {
+  // Create user with profile + wallet
   static async create(userData) {
     const hashedPassword = await bcrypt.hash(userData.password, 12);
 
-    return await prisma.user.create({
+    return prisma.user.create({
       data: {
         email: userData.email,
         passwordHash: hashedPassword,
@@ -15,29 +16,39 @@ class User {
         profile: {
           create: {
             fullName: userData.fullName,
-            avatarUrl: userData.avatarUrl,
-            bio: userData.bio,
+            avatarUrl: userData.avatarUrl || null,
+            bio: userData.bio || null,
           },
         },
+        wallet: {
+          create: {}
+        }
       },
       include: {
         profile: true,
-        addresses: true,
         wallet: true,
       },
     });
   }
 
+  // Find active user by email
   static async findByEmail(email) {
-    return await prisma.user.findUnique({
-      where: { email, isActive: true },
+    return prisma.user.findFirst({
+      where: {
+        email,
+        isActive: true,
+      },
       include: { profile: true },
     });
   }
 
+  // Find active user by ID
   static async findById(id) {
-    return await prisma.user.findUnique({
-      where: { id, isActive: true },
+    return prisma.user.findFirst({
+      where: {
+        id,
+        isActive: true,
+      },
       include: {
         profile: true,
         addresses: { where: { isActive: true } },
@@ -46,28 +57,56 @@ class User {
     });
   }
 
+  // Update user (safe)
   static async update(id, updateData) {
-    return await prisma.user.update({
+    const data = { ...updateData };
+
+    if (updateData.password) {
+      data.passwordHash = await bcrypt.hash(updateData.password, 12);
+      delete data.password;
+    }
+
+    return prisma.user.update({
       where: { id },
-      data: updateData,
+      data,
       include: { profile: true },
     });
   }
 
+  // Soft delete user + cascade deactivation
   static async softDelete(id) {
-    return await prisma.user.update({
-      where: { id },
-      data: {
-        isActive: false,
-        email: `deleted_${Date.now()}_${id}`,
-      },
-    });
+    await prisma.$transaction([
+      prisma.listing.updateMany({
+        where: { ownerId: id },
+        data: { isActive: false }
+      }),
+      prisma.order.updateMany({
+        where: {
+          OR: [
+            { buyerId: id },
+            { listing: { ownerId: id } }
+          ]
+        },
+        data: { isActive: false }
+      }),
+      prisma.user.update({
+        where: { id },
+        data: {
+          isActive: false,
+          email: `deleted_${Date.now()}_${id}`
+        }
+      })
+    ]);
+
+    return true;
   }
 
+  // Password comparison
   static async comparePassword(plainPassword, hashedPassword) {
-    return await bcrypt.compare(plainPassword, hashedPassword);
+    return bcrypt.compare(plainPassword, hashedPassword);
   }
 
+  // Admin: paginated users
   static async getAllUsers(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
@@ -93,67 +132,47 @@ class User {
     };
   }
 
+  // Create or update profile (CORRECTED)
   static async createOrUpdateProfile(userId, profileData) {
-    try {
-      const existingProfile = await prisma.profile.findUnique({
-        where: { userId },
-      });
-
-      if (existingProfile) {
-        const updatedProfile = await prisma.profile.update({
-          where: { userId },
-          data: {
-            fullName: data.fullName ?? existingProfile.fullName,
-            avatarUrl: data.avatarUrl ?? existingProfile.avatarUrl,
-            bio: data.bio ?? existingProfile.bio,
-            updatedAt: new Date(),
-          },
-        });
-        return updatedProfile;
-      } else {
-        const newProfile = await prisma.profile.create({
-          data: {
-            userId,
-            fullName: data.fullName,
-            avatarUrl: data.avatarUrl || null,
-            bio: data.bio || null,
-          },
-        });
-        return newProfile;
-      }
-    } catch (error) {
-      console.error("Error creating or updating profile:", error);
-      throw new Error("Unable to create or update profile");
-    }
+    return prisma.profile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        fullName: profileData.fullName,
+        avatarUrl: profileData.avatarUrl || null,
+        bio: profileData.bio || null,
+      },
+      update: {
+        fullName: profileData.fullName,
+        avatarUrl: profileData.avatarUrl,
+        bio: profileData.bio,
+      },
+    });
   }
 
+  // Get profile with user info
   static async getProfile(userId) {
-    try {
-      const profile = await prisma.profile.findUnique({
-        where: { userId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              phone: true,
-              role: true,
-              isActive: true,
-              createdAt: true,
-            },
+    const profile = await prisma.profile.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
           },
         },
-      });
+      },
+    });
 
-      if (!profile) {
-        throw new Error("Profile not found");
-      }
-
-      return profile;
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      throw new Error("Unable to fetch profile");
+    if (!profile) {
+      throw new Error("Profile not found");
     }
+
+    return profile;
   }
 }
 

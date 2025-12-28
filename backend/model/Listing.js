@@ -1,46 +1,63 @@
 // src/models/Listing.js
 import prisma from '../database.js';
+import { ListingStatus } from '@prisma/client';
 
 class Listing {
+  // Create listing
   static async create(listingData) {
-    return await prisma.listing.create({
+    return prisma.listing.create({
       data: listingData,
       include: {
-        item: {
-          include: { photos: true }
-        },
-        owner: {
-          include: { profile: true }
-        }
+        item: { include: { photos: true } },
+        owner: { include: { profile: true } }
       }
     });
   }
 
+  // Get listing by ID (active only)
   static async findById(id) {
-    return await prisma.listing.findUnique({
-      where: { id, isActive: true },
+    return prisma.listing.findFirst({
+      where: {
+        id,
+        isActive: true
+      },
       include: {
-        item: {
-          include: { photos: true }
-        },
-        owner: {
-          include: { profile: true }
-        },
+        item: { include: { photos: true } },
+        owner: { include: { profile: true } },
         bookings: {
           where: { isActive: true },
-          include: { 
+          include: {
             buyer: { include: { profile: true } },
-            deliveryJob: true 
+            deliveryJob: true
           }
         }
       }
     });
   }
 
+  // Get listings by owner (secure)
+  static async findByOwner(ownerId) {
+    return prisma.listing.findMany({
+      where: {
+        ownerId,
+        isActive: true
+      },
+      include: {
+        item: { include: { photos: true } },
+        bookings: {
+          where: { isActive: true },
+          include: { buyer: { include: { profile: true } } }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Public listing search
   static async findAll(filters = {}) {
     const {
       type,
-      status = 'ACTIVE',
+      status = ListingStatus.ACTIVE,
       minPrice,
       maxPrice,
       brand,
@@ -53,11 +70,11 @@ class Listing {
 
     const where = {
       isActive: true,
-      status: status || 'ACTIVE',
+      status,
       ...(type && { type }),
+      ...(condition && { item: { condition } }),
       ...(brand && { item: { brand: { contains: brand, mode: 'insensitive' } } }),
       ...(size && { item: { size: { contains: size, mode: 'insensitive' } } }),
-      ...(condition && { item: { condition } }),
       ...(search && {
         OR: [
           { item: { title: { contains: search, mode: 'insensitive' } } },
@@ -67,11 +84,10 @@ class Listing {
       })
     };
 
-    // Price filtering
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.OR = [
-        { pricePerDay: { gte: minPrice || 0, lte: maxPrice || 1000000 } },
-        { price: { gte: minPrice || 0, lte: maxPrice || 1000000 } }
+        { pricePerDay: { gte: minPrice || 0, lte: maxPrice || 1_000_000 } },
+        { price: { gte: minPrice || 0, lte: maxPrice || 1_000_000 } }
       ];
     }
 
@@ -81,12 +97,8 @@ class Listing {
       prisma.listing.findMany({
         where,
         include: {
-          item: {
-            include: { photos: true }
-          },
-          owner: {
-            include: { profile: true }
-          }
+          item: { include: { photos: true } },
+          owner: { include: { profile: true } }
         },
         skip,
         take: limit,
@@ -106,48 +118,103 @@ class Listing {
     };
   }
 
-  static async update(id, updateData) {
-    return await prisma.listing.update({
-      where: { id },
-      data: updateData,
-      include: {
-        item: {
-          include: { photos: true }
-        }
-      }
+  // Update listing (owner-scoped)
+  static async update(id, ownerId, updateData) {
+    const result = await prisma.listing.updateMany({
+      where: {
+        id,
+        ownerId,
+        isActive: true,
+        status: { not: ListingStatus.SOLD }
+      },
+      data: updateData
+    });
+
+    return result.count > 0;
+  }
+
+  // Pause listing
+  static async pause(id, ownerId) {
+    return prisma.listing.updateMany({
+      where: {
+        id,
+        ownerId,
+        status: ListingStatus.ACTIVE
+      },
+      data: { status: ListingStatus.PAUSED }
     });
   }
 
-  static async softDelete(id) {
-    return await prisma.listing.update({
-      where: { id },
-      data: { 
+  // Resume listing
+  static async resume(id, ownerId) {
+    return prisma.listing.updateMany({
+      where: {
+        id,
+        ownerId,
+        status: ListingStatus.PAUSED
+      },
+      data: { status: ListingStatus.ACTIVE }
+    });
+  }
+
+  // Mark listing as sold
+  static async markAsSold(id, ownerId) {
+    return prisma.listing.updateMany({
+      where: {
+        id,
+        ownerId,
+        status: { in: [ListingStatus.ACTIVE, ListingStatus.PAUSED] }
+      },
+      data: { status: ListingStatus.SOLD }
+    });
+  }
+
+  // Soft delete listing
+  static async softDelete(id, ownerId) {
+    await prisma.order.updateMany({
+      where: {
+        listingId: id,
+        isActive: true
+      },
+      data: { isActive: false }
+    });
+
+    const result = await prisma.listing.updateMany({
+      where: {
+        id,
+        ownerId,
+        isActive: true
+      },
+      data: {
         isActive: false,
-        status: 'REMOVED'
+        status: ListingStatus.REMOVED
+      }
+    });
+
+    return result.count > 0;
+  }
+
+  // Find listings by item
+  static async findByItemId(itemId) {
+    return prisma.listing.findMany({
+      where: {
+        itemId,
+        isActive: true
+      },
+      include: {
+        owner: { include: { profile: true } }
       }
     });
   }
 
-  static async findByOwner(ownerId) {
-    return await prisma.listing.findMany({
-      where: { ownerId, isActive: true },
+  // Admin: all listings
+  static async adminFindAll() {
+    return prisma.listing.findMany({
       include: {
-        item: {
-          include: { photos: true }
-        },
-        bookings: {
-          where: { isActive: true },
-          include: { buyer: { include: { profile: true } } }
-        }
+        item: true,
+        owner: true
       },
       orderBy: { createdAt: 'desc' }
-    });
-  }
-
-  static async updateStatus(id, status) {
-    return await prisma.listing.update({
-      where: { id },
-      data: { status }
     });
   }
 }

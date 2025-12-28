@@ -2,50 +2,111 @@
 import prisma from '../database.js';
 
 class Address {
+  // Create address
   static async create(addressData) {
-    return await prisma.address.create({
+    return prisma.address.create({
       data: addressData
     });
   }
 
-  static async findById(id) {
-    return await prisma.address.findUnique({
-      where: { id, isActive: true }
+  // Get address by ID (user-scoped)
+  static async findById(id, userId) {
+    return prisma.address.findFirst({
+      where: {
+        id,
+        userId,
+        isActive: true
+      }
     });
   }
 
+  // Get all active addresses of a user
   static async findByUserId(userId) {
-    return await prisma.address.findMany({
-      where: { userId, isActive: true },
+    return prisma.address.findMany({
+      where: {
+        userId,
+        isActive: true
+      },
       orderBy: { createdAt: 'desc' }
     });
   }
 
-  static async update(id, updateData) {
-    return await prisma.address.update({
-      where: { id },
+  // Admin / internal use – includes inactive
+  static async findAllByUserIdAdmin(userId) {
+    return prisma.address.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Get default address
+  static async findDefaultByUser(userId) {
+    return prisma.address.findFirst({
+      where: {
+        userId,
+        label: 'Default',
+        isActive: true
+      }
+    });
+  }
+
+  // Update address (user-scoped)
+  static async update(id, userId, updateData) {
+    const result = await prisma.address.updateMany({
+      where: {
+        id,
+        userId,
+        isActive: true
+      },
       data: updateData
     });
+
+    return result.count > 0;
   }
 
-  static async softDelete(id) {
-    return await prisma.address.update({
-      where: { id },
+  // Soft delete address (user-scoped)
+  static async softDelete(id, userId) {
+    const result = await prisma.address.updateMany({
+      where: {
+        id,
+        userId,
+        isActive: true
+      },
       data: { isActive: false }
     });
+
+    return result.count > 0;
   }
 
+  // Set default address (user-scoped)
   static async setDefaultAddress(userId, addressId) {
-    // First, set all addresses as non-default
+    // Reset previous default
     await prisma.address.updateMany({
-      where: { userId },
+      where: {
+        userId,
+        label: 'Default'
+      },
       data: { label: 'Home' }
     });
 
-    // Then set the selected one as default
-    return await prisma.address.update({
-      where: { id: addressId },
+    // Set new default
+    const result = await prisma.address.updateMany({
+      where: {
+        id: addressId,
+        userId,
+        isActive: true
+      },
       data: { label: 'Default' }
+    });
+
+    return result.count > 0;
+  }
+
+  // Deactivate all addresses (user deactivation / compliance)
+  static async deactivateByUser(userId) {
+    return prisma.address.updateMany({
+      where: { userId },
+      data: { isActive: false }
     });
   }
 }

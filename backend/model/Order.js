@@ -1,15 +1,29 @@
 // src/models/Order.js
 import prisma from '../database.js';
+import { OrderStatus, DeliveryStatus } from '@prisma/client';
+
+const ORDER_FLOW = {
+  CREATED: ['PICKUP_ASSIGNED', 'CANCELLED'],
+  PICKUP_ASSIGNED: ['PICKED_UP', 'CANCELLED'],
+  PICKED_UP: ['IN_TRANSIT'],
+  IN_TRANSIT: ['DELIVERED_FOR_TRYON'],
+  DELIVERED_FOR_TRYON: ['VERIFIED_OK', 'RETURN_SCHEDULED'],
+  VERIFIED_OK: ['COMPLETED'],
+  RETURN_SCHEDULED: ['RETURNED'],
+  RETURNED: ['COMPLETED']
+};
 
 class Order {
+  // Create order + delivery
   static async create(orderData) {
-    return await prisma.order.create({
+    return prisma.order.create({
       data: {
         ...orderData,
         deliveryJob: {
           create: {
             pickupAddressId: orderData.pickupAddressId,
-            deliveryAddressId: orderData.deliveryAddressId
+            deliveryAddressId: orderData.deliveryAddressId,
+            status: DeliveryStatus.PENDING_PICKUP
           }
         }
       },
@@ -27,9 +41,13 @@ class Order {
     });
   }
 
+  // Get order by ID (active only)
   static async findById(id) {
-    return await prisma.order.findUnique({
-      where: { id, isActive: true },
+    return prisma.order.findFirst({
+      where: {
+        id,
+        isActive: true
+      },
       include: {
         listing: {
           include: {
@@ -51,36 +69,77 @@ class Order {
     });
   }
 
-  static async updateStatus(id, status, deliveryData = {}) {
-    const updateData = { orderStatus: status };
-    
-    if (status === 'PICKED_UP') {
-      updateData.deliveryJob = {
-        update: {
-          status: 'IN_TRANSIT',
-          pickedAt: new Date(),
-          ...deliveryData
-        }
-      };
-    } else if (status === 'DELIVERED_FOR_TRYON') {
-      updateData.deliveryJob = {
-        update: {
-          status: 'DELIVERED',
-          deliveredAt: new Date(),
-          ...deliveryData
-        }
-      };
-    } else if (status === 'COMPLETED') {
-      updateData.deliveryJob = {
-        update: {
-          status: 'COMPLETED'
-        }
-      };
+  // Buyer orders
+  static async findByBuyer(buyerId) {
+    return prisma.order.findMany({
+      where: {
+        buyerId,
+        isActive: true
+      },
+      include: {
+        listing: { include: { item: { include: { photos: true } } } },
+        deliveryJob: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Seller orders
+  static async findBySeller(ownerId) {
+    return prisma.order.findMany({
+      where: {
+        listing: { ownerId },
+        isActive: true
+      },
+      include: {
+        listing: { include: { item: { include: { photos: true } } } },
+        buyer: { include: { profile: true } },
+        deliveryJob: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Update order status (validated)
+  static async updateStatus(orderId, newStatus) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { deliveryJob: true }
+    });
+
+    if (!order || !order.isActive) {
+      throw new Error('Order not found');
     }
 
-    return await prisma.order.update({
-      where: { id },
-      data: updateData,
+    const allowed = ORDER_FLOW[order.orderStatus] || [];
+    if (!allowed.includes(newStatus)) {
+      throw new Error(`Invalid order transition from ${order.orderStatus} → ${newStatus}`);
+    }
+
+    const deliveryUpdates = {};
+
+    if (newStatus === OrderStatus.PICKED_UP) {
+      deliveryUpdates.status = DeliveryStatus.PICKED_UP;
+      deliveryUpdates.pickedAt = new Date();
+    }
+
+    if (newStatus === OrderStatus.DELIVERED_FOR_TRYON) {
+      deliveryUpdates.status = DeliveryStatus.DELIVERED;
+      deliveryUpdates.deliveredAt = new Date();
+    }
+
+    if (newStatus === OrderStatus.COMPLETED) {
+      deliveryUpdates.status = DeliveryStatus.COMPLETED;
+    }
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        orderStatus: newStatus,
+        ...(Object.keys(deliveryUpdates).length && {
+          deliveryJob: { update: deliveryUpdates }
+        })
+      },
       include: {
         deliveryJob: true,
         listing: true,
@@ -89,46 +148,52 @@ class Order {
     });
   }
 
-  static async findByBuyer(buyerId) {
-    return await prisma.order.findMany({
-      where: { buyerId, isActive: true },
-      include: {
-        listing: {
-          include: {
-            item: { include: { photos: true } }
+  // Assign delivery person (ADMIN only)
+  static async assignDeliveryPerson(orderId, deliveryPersonId) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        orderStatus: OrderStatus.PICKUP_ASSIGNED,
+        deliveryJob: {
+          update: {
+            assignedToId: deliveryPersonId,
+            status: DeliveryStatus.ASSIGNED
           }
-        },
-        deliveryJob: true
+        }
       },
-      orderBy: { createdAt: 'desc' }
+      include: {
+        deliveryJob: {
+          include: {
+            assignedTo: { include: { profile: true } }
+          }
+        }
+      }
     });
   }
 
-  static async findBySeller(ownerId) {
-    return await prisma.order.findMany({
-      where: { 
-        listing: { ownerId },
-        isActive: true 
-      },
-      include: {
-        listing: {
-          include: {
-            item: { include: { photos: true } }
-          }
-        },
-        buyer: { include: { profile: true } },
-        deliveryJob: true
-      },
-      orderBy: { createdAt: 'desc' }
+  // Cancel order (buyer/admin)
+  static async cancel(orderId) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        orderStatus: OrderStatus.CANCELLED,
+        isActive: false
+      }
     });
   }
 
+  // Orders needing delivery attention
   static async findPendingDeliveries() {
-    return await prisma.order.findMany({
+    return prisma.order.findMany({
       where: {
         isActive: true,
         orderStatus: {
-          in: ['CREATED', 'PICKUP_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT']
+          in: [
+            OrderStatus.CREATED,
+            OrderStatus.PICKUP_ASSIGNED,
+            OrderStatus.PICKED_UP,
+            OrderStatus.IN_TRANSIT
+          ]
         }
       },
       include: {
@@ -148,25 +213,28 @@ class Order {
     });
   }
 
-  static async assignDeliveryPerson(orderId, deliveryPersonId) {
-    return await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        orderStatus: 'PICKUP_ASSIGNED',
-        deliveryJob: {
-          update: {
-            assignedToId: deliveryPersonId,
-            status: 'ASSIGNED'
-          }
-        }
-      },
+  // Admin: all orders
+  static async adminFindAll() {
+    return prisma.order.findMany({
       include: {
-        deliveryJob: {
-          include: {
-            assignedTo: { include: { profile: true } }
-          }
-        }
-      }
+        buyer: true,
+        listing: true,
+        deliveryJob: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // Deactivate all orders by user (compliance)
+  static async deactivateByUser(userId) {
+    return prisma.order.updateMany({
+      where: {
+        OR: [
+          { buyerId: userId },
+          { listing: { ownerId: userId } }
+        ]
+      },
+      data: { isActive: false }
     });
   }
 }
