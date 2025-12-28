@@ -1,7 +1,6 @@
 // src/routes/deliveries.js
 import express from 'express';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
-import Delivery from '../model/Delivery.js';
 import Order from '../model/Order.js';
 
 const router = express.Router();
