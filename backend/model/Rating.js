@@ -1,6 +1,7 @@
 // src/models/Rating.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { OrderStatus } from '@prisma/client';
+const {OrderStatus} = pkg;
 
 class Rating {
   // Create rating (validated)

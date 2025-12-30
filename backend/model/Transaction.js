@@ -1,6 +1,7 @@
 // src/models/Transaction.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { TransactionType } from '@prisma/client';
+const {TransactionType} = pkg;
 
 class Transaction {
   // Create transaction (idempotent-safe)

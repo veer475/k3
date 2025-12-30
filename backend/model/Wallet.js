@@ -1,6 +1,7 @@
 // src/models/Wallet.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { TransactionType } from '@prisma/client';
+const {TransactionType} = pkg;
 
 class Wallet {
   // Ensure wallet exists (idempotent)

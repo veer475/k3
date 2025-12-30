@@ -1,6 +1,7 @@
 // src/models/Delivery.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { DeliveryStatus } from '@prisma/client';
+const {DeliveryStatus} = pkg;
 
 const STATUS_FLOW = {
   PENDING_PICKUP: ['ASSIGNED'],

@@ -1,6 +1,7 @@
 // src/models/Order.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { OrderStatus, DeliveryStatus } from '@prisma/client';
+const {OrderStatus,DeliveryStatus} = pkg;
 
 const ORDER_FLOW = {
   CREATED: ['PICKUP_ASSIGNED', 'CANCELLED'],

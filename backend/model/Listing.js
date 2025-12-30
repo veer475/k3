@@ -1,6 +1,7 @@
 // src/models/Listing.js
+import pkg from '@prisma/client';
 import prisma from '../database.js';
-import { ListingStatus } from '@prisma/client';
+const {ListingStatus} = pkg;
 
 class Listing {
   // Create listing
